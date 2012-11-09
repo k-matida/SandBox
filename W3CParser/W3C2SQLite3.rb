@@ -85,7 +85,7 @@ st=dbh.prepare(query_insert)
 # pg Read W3C Format file 
 # 加工してインポートしたほうがよさそうだけど学習のため一行ずつ処理
 require 'csv'
-CSV.foreach(ARGV[0]) do |i|
+CSV.open(ARGV[0], 'r') do |i|
   args=i.values_at(0,2,3,5,7,8,9,10,11,12,13).map{|v| v.strip}
   st.execute(*(args + [nil]))
 end
