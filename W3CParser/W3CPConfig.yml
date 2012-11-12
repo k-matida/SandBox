@@ -1,0 +1,7 @@
+# W3C Config
+# Database
+DBNAME: "/home/hoi/git/SandBox/W3CParser/pom.sqlite3"
+DBURLPREFIX: "DBI:jdbc:sqlite:" 
+DBUSER: 
+DBPASSWORD:
+JDBCDRIVER: "org.sqlite.JDBC"
