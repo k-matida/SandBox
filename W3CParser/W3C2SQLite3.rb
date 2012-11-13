@@ -1,96 +1,79 @@
 #!/usr/bin/env jruby
-# W3C2SQLite3.rb 0.0.1
-# テキスト形式のIIS(W3CFormat)ログをSQLite3に登録する
 #
-# Usage: ruby W3CParser [todo]
-#
-# sqlite3-rubyというナイスなパッケージがjRubyで使用できない！
-# そのためdbi経由でSQLite3にアクセスする。
+# テキスト形式のIIS(W3CFormat)ログをDBに登録する
 #
 # なお、IIS W3C形式のログは、出力形式がカスタマイズ可能である。
 # そのためこのプログラムで処理できるフォーマットを明記する必要が
-# ある。サンプルでなければ。
+# ある。
+require 'optparse'
+require 'csv'
 require 'yaml'
-config = YAML.load_file('W3CPConfig.yml')
-DBNAME = config['DBNAME']
-DBURL = config['DBURLPREFIX'] + DBNAME 
-DBUSER = config['DBUSER']
-DBPASSWORD = config['DBPASSWORD'] 
-JDBCDRIVER = config['JDBCDRIVER']
-
-unless ARGV[0]
-  puts "Usage: [TODO]"
-  exit 1
-end
-
-#
-# W3C用のログテーブルにアクセスする。
-#
 require 'rubygems'
-require 'java'
-require 'dbi'
-require 'dbd/Jdbc' # dbd-jbdc 0.1.4 以外はdbd/jdbcのようで嵌った
-require 'jdbc/sqlite3'
+require 'active_record'
 
-Dir.chdir(File.dirname(File.expand_path(DBNAME)))
-DBI.connect(DBURL, DBUSER, DBPASSWORD, 'AutoCommit'=>false, 'driver'=>JDBCDRIVER) do |dbh|
+class LogTableMapper 
 
-  # SQL文の管理は本当なら別の機構が必要だろう
-  sql = <<SQL
-  SELECT tbl_name
-  FROM sqlite_master
-  WHERE type=='table'
-SQL
-
-  unless(dbh.execute(sql).fetch_all.include?(["log"]))
-  sql = <<SQL
-  CREATE TABLE log(
-    c_ip,
-    date,
-    time, 
-    s_computername, 
-    time_taken,
-    sc_bytes,
-    cs_bytes,
-    sc_status,
-    sc_win32_status,
-    cs_method, 
-    cs_uri_query,
-    cs_u_a
-    );"
-SQL
-    dbh.do(sql)
+  def initialize (config_file_name)
+    config = YAML.load_file(config_file_name)
+    @dbname = config["DBNAME"] 
+    @adapter = config["ADAPTER"]
+    #ActiveRecord::Base.logger = Logger.new("debug.log")
   end
 
-  query_insert= <<SQL
-  INSERT INTO log VALUES(:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11, :12)
-SQL
-#  :c_ip,
-#  :date,
-#  :time, 
-#  :s_computername,
-#  :time_taken,
-#  :sc_bytes,
-#  :cs_bytes,
-#  :sc_status,
-#  :sc_win32_status,
-#  :cs_method, 
-#  :cs_uri_query,
-#  :cs_u_a
-#  );"
-#SQL
-  # ログをインサートするsqlを準備
-  st=dbh.prepare(query_insert)
-
-  #
-  # IISログを読み込んでテーブルに挿入する。
-  # 加工してインポートしたほうがよさそうだけど学習のため一行ずつ処理
-  # 
-  require 'csv'
-  CSV.open(ARGV[0], 'r') do |i|
-    args=i.values_at(0,2,3,5,7,8,9,10,11,12,13).map{|v| v.strip}
-    st.execute(*(args + [nil]))
+  def connect
+    ActiveRecord::Base.establish_connection(
+      :adapter => @adapter,
+      :database => @dbname
+    )
   end
 
-  dbh.commit
+  def insertlog csv_file_name
+    self.connect
+    Log.transaction do
+      CSV.foreach(csv_file_name) do |row|
+        log = Log.new
+        log.c_ip = row[0]
+        log.date = row[2]
+        log.time = row[3]
+        log.s_computername = row[5]
+        log.time_taken = row[7]
+        log.sc_bytes = row[8]
+        log.cs_bytes = row[9]
+        log.sc_status = row[10]
+        log.sc_win32_status = row[11]
+        log.cs_method = row[12]
+        log.cs_uri_stem = row[13]
+        log.save
+      end
+    end 
+  end
 end
+
+class Log < ActiveRecord::Base
+end
+
+class W3C2SQLite3
+  attr_reader :csv_file_name
+
+  def main
+    args_parse
+    LogTableMapper.new("database.yml").insertlog(@csv_file_name)
+  end
+
+  private
+  def args_parse
+    usage="Usage: W3C2SQLie3 FILENAME"
+    OptionParser.new usage do |opt|
+      opt.version = "0.1.0"
+      opt.parse!
+      if ARGV[0].nil? 
+        puts "Usage: W3C2SQLite3.rb FILENAME"
+        exit
+      else
+        @csv_file_name = ARGV[0] 
+      end
+    end
+  end
+end
+
+W3C2SQLite3.new.main

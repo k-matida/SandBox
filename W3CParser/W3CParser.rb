@@ -20,7 +20,7 @@ end
 
 # configファイルの読込
 require 'yaml'
-config = YAML.load_file('W3CPConfig.yml')
+config = YAML.load_file('database.yml')
 DBNAME = config['DBNAME']
 DBURL = config['DBURLPREFIX'] + config['DBNAME']
 DBUSER = config['DBUSER']
