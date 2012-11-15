@@ -1,7 +1,8 @@
 # W3C Config
 # Database
-DBNAME: "/home/hoi/git/SandBox/W3CParser/pom.sqlite3"
+DBNAME: "/home/hoi/git/SandBox/W3CParser/20121115.sqlite3"
 DBURLPREFIX: "DBI:jdbc:sqlite:" 
 DBUSER: 
 DBPASSWORD:
 JDBCDRIVER: "org.sqlite.JDBC"
+ADAPTER: "jdbcsqlite3"
